@@ -1,2 +1,3 @@
-# dshot-encoder
-Rust-port of DSHOT frame encoder
+# Rust-port of DSHOT frame encoder
+
+This crate is relatively simple. Its main task is to combine the 11-bit message (throttle or command) with the telemetry request, along with a cyclic redundancy check into a 16-bit number. This number then has to be transmitted using a precicely-timed PWM-signal to the DSHOT-capable ESC. The implementation of this PWM-generator is different for every brand of microcontroller, and is not covered by this crate.

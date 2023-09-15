@@ -65,56 +65,64 @@ pub enum DshotError {
 }
 
 /// Calculate the CRC checksum for a packet
-fn calc_checksum(command: u16, telemetry: bool) -> u16 {
+fn calc_checksum(command: u16, telemetry: bool, inverted: bool) -> u16 {
     // Concatenate throttle value with telemetry request
     let packet = (command << 1) | (telemetry as u16);
 
     // Calculate and return checksum
-    (packet ^ (packet >> 4) ^ (packet >> 8)) & 0x0F
+    if inverted {
+        (!(packet ^ (packet >> 4) ^ (packet >> 8))) & 0x0F
+    } else {
+        (packet ^ (packet >> 4) ^ (packet >> 8)) & 0x0F
+    }
 }
 
 /// Calculate the DSHOT frame for any 11-bit message.
 /// For non-throttle commands, the telemetry flag has to be set
-fn any_message(message: u16, telemetry: bool) -> u16 {
+fn any_message(message: u16, telemetry: bool, inverted: bool) -> u16 {
     // Get checksum
-    let checksum = calc_checksum(message, telemetry);
+    let checksum = calc_checksum(message, telemetry, inverted);
 
     // Assemble packet
-    message << 5 | (telemetry as u16) << 4 | checksum
+    if inverted  {
+        !(message << 5 | (telemetry as u16) << 4 | checksum)
+    } else {
+        message << 5 | (telemetry as u16) << 4 | checksum
+    }
 }
 
 /// Calculate the DSHOT frame for a throttle value between 48 and 2047
-pub fn throttle(throttle: u16, telemetry: bool) -> Result<u16, DshotError> {
+pub fn throttle(throttle: u16, telemetry: bool, inverted: bool) -> Result<u16, DshotError> {
     // Early return with error if throttle is out of range
     if throttle < THROTTLE_MIN || throttle > THROTTLE_MAX {
         return Err(DshotError::InvalidThrottleValue(throttle));
     }
 
-    Ok(any_message(throttle, telemetry))
+    Ok(any_message(throttle, telemetry, inverted))
 }
 
 /// Calculate the DSHOT frame for any valid command
-pub fn command(command: DshotCmdT) -> u16 {
+pub fn command(command: DshotCmdT, inverted: bool) -> u16 {
     // Telemetry bit must be set in command frames
     let telemetry = true;
 
-    any_message(command as u16, telemetry)
+    any_message(command as u16, telemetry, inverted)
 }
 
 /// Calculate the DSHOT frame for reversing the motor spin direction
-pub fn reverse(reverse: bool) -> u16 {
+pub fn reverse(reverse: bool, inverted: bool) -> u16 {
     command(match reverse {
         true => DshotCmdT::DigitalCmdSpinDirectionReversed,
         false => DshotCmdT::DigitalCmdSpinDirectionNormal,
-    })
+    }, inverted)
 }
 
 /// Calculate the DSHOT frame where throttle is clamped to be between 48 and 2047
-pub fn throttle_clamp(throttle: u16, telemetry: bool) -> u16 {
-    any_message(throttle.clamp(THROTTLE_MIN, THROTTLE_MAX), telemetry)
+pub fn throttle_clamp(throttle: u16, telemetry: bool, inverted: bool) -> u16 {
+    any_message(throttle.clamp(THROTTLE_MIN, THROTTLE_MAX), telemetry, inverted)
 }
 
 /// Calculate the DSHOT frame for a minimum throttle value
-pub fn throttle_minimum(telemetry: bool) -> u16 {
-    any_message(THROTTLE_MIN, telemetry)
+pub fn throttle_minimum(telemetry: bool, inverted: bool) -> u16 {
+    any_message(THROTTLE_MIN, telemetry, inverted)
 }

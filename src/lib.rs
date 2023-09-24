@@ -84,11 +84,7 @@ fn any_message(message: u16, telemetry: bool, inverted: bool) -> u16 {
     let checksum = calc_checksum(message, telemetry, inverted);
 
     // Assemble packet
-    if inverted  {
-        !(message << 5 | (telemetry as u16) << 4 | checksum)
-    } else {
-        message << 5 | (telemetry as u16) << 4 | checksum
-    }
+    message << 5 | (telemetry as u16) << 4 | checksum
 }
 
 /// Calculate the DSHOT frame for a throttle value between 48 and 2047
@@ -125,4 +121,20 @@ pub fn throttle_clamp(throttle: u16, telemetry: bool, inverted: bool) -> u16 {
 /// Calculate the DSHOT frame for a minimum throttle value
 pub fn throttle_minimum(telemetry: bool, inverted: bool) -> u16 {
     any_message(THROTTLE_MIN, telemetry, inverted)
+}
+
+/// almost entirely sourced from https://github.com/betaflight/betaflight/blob/master/src/main/drivers/dshot.c#L140-L155
+pub fn e_rpm_from_telemetry_value(value: u16) -> u32 {
+    // eRPM range
+    if value == 0x0fff {
+        return 0;
+    }
+
+    let mut value: u32 = value.into();
+
+    // Convert value to 16 bit from the GCR telemetry format (eeem mmmm mmmm)
+    value = (value & 0x01ff) << ((value & 0xfe00) >> 9);
+
+    // Convert period to erpm * 100
+    (1000000 * 60 / 100 + value / 2) / value
 }
